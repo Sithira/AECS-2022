@@ -1,0 +1,45 @@
+version: '3.8'
+networks:
+  dex-network:
+    driver: "bridge"
+
+services:
+  dex-mysql:
+    container_name: "dex-datastore"
+    image: "mysql:latest"
+    environment:
+      MYSQL_ROOT_PASSWORD: "root"
+    networks:
+      - dex-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "-uroot", "-proot",  "ping", "-h", "localhost"]
+  dex-address-service:
+    build:
+      context: "services/dex-address-service/."
+      dockerfile: "Dockerfile"
+    image: "dex-services/dex-address-service:latest"
+    environment:
+      DATABASE_INSTANCE: "dex-datastore"
+      DATABASE_NAME: "dex_address_service"
+      DATABASE_USER: "root"
+      DATABASE_PASSWORD: "root"
+    ports:
+      - "9001:8080"
+    networks:
+      - dex-network
+  dex-exchange-service:
+    build:
+      context: "services/dex-exchange-service/."
+      dockerfile: "Dockerfile"
+    image: "dex-services/dex-exchange-service:latest"
+    command: []
+    environment:
+      DATABASE_INSTANCE: "dex-datastore"
+      DATABASE_NAME: "dex_exchange_service"
+      DATABASE_USER: "root"
+      DATABASE_PASSWORD: "root"
+    ports:
+      - "9002:8080"
+    networks:
+      - dex-network
+

@@ -1,0 +1,15 @@
+server:
+  port: 9002
+
+spring:
+  application:
+    name: dex-exchange-service
+  datasource:
+    url: jdbc:mysql://${DATABASE_INSTANCE:localhost}:3306/${DATABASE_NAME}?createDatabaseIfNotExist=true
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    generate-ddl: true
+    open-in-view: false
