@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class DexAddressService {
+public class DexAddressServiceApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(DexAddressService.class, args);
+        SpringApplication.run(DexAddressServiceApplication.class, args);
     }
 
 }

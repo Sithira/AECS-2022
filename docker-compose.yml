@@ -4,6 +4,8 @@ networks:
     driver: "bridge"
 
 services:
+
+  # DEX common data source
   dex-mysql:
     container_name: "dex-datastore"
     image: "mysql:latest"
@@ -11,49 +13,25 @@ services:
       MYSQL_ROOT_PASSWORD: "root"
     networks:
       - dex-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "-uroot", "-proot",  "ping", "-h", "localhost"]
 
-  dex-address-service:
+  dex-discovery-service:
+    image: "dex-services/dex-discovery-service"
     build:
-      context: "services/dex-address-service/."
+      context: "foundation/dex-service-discovery/."
       dockerfile: "Dockerfile"
-    image: "dex-services/dex-address-service:latest"
-    environment:
-      DATABASE_INSTANCE: "dex-datastore"
-      DATABASE_NAME: "dex_address_service"
-      DATABASE_USER: "root"
-      DATABASE_PASSWORD: "root"
-    ports:
-      - "9001:8080"
     networks:
       - dex-network
-    depends_on:
-      - dex-mysql
-
-  dex-exchange-service:
-    build:
-      context: "services/dex-exchange-service/."
-      dockerfile: "Dockerfile"
-    image: "dex-services/dex-exchange-service:latest"
-    environment:
-      DATABASE_INSTANCE: "dex-datastore"
-      DATABASE_NAME: "dex_exchange_service"
-      DATABASE_USER: "root"
-      DATABASE_PASSWORD: "root"
     ports:
-      - "9002:8080"
-    networks:
-      - dex-network
-    depends_on:
-      - dex-mysql
+      - "8761:8761"
 
+  # DEX authentication service
   dex-auth-service:
     build:
       context: "services/dex-auth-service/."
       dockerfile: "Dockerfile"
     image: "dex-services/dex-auth-service:latest"
     environment:
+      EUREKA_URI: "http://dex-discovery-service:8761/eureka"
       DATABASE_INSTANCE: "dex-datastore"
       DATABASE_NAME: "dex_auth_service"
       DATABASE_USER: "root"
@@ -65,3 +43,40 @@ services:
     depends_on:
       - dex-mysql
 
+  # Dex address service
+  dex-address-service:
+    build:
+      context: "services/dex-address-service/."
+      dockerfile: "Dockerfile"
+    image: "dex-services/dex-address-service:latest"
+    environment:
+      EUREKA_URI: "http://dex-discovery-service:8761/eureka"
+      DATABASE_INSTANCE: "dex-datastore"
+      DATABASE_NAME: "dex_address_service"
+      DATABASE_USER: "root"
+      DATABASE_PASSWORD: "root"
+    ports:
+      - "9001:8080"
+    networks:
+      - dex-network
+    depends_on:
+      - dex-mysql
+
+  # Dex exchange service
+  dex-exchange-service:
+    build:
+      context: "services/dex-exchange-service/."
+      dockerfile: "Dockerfile"
+    image: "dex-services/dex-exchange-service:latest"
+    environment:
+      EUREKA_URI: "http://dex-discovery-service:8761/eureka"
+      DATABASE_INSTANCE: "dex-datastore"
+      DATABASE_NAME: "dex_exchange_service"
+      DATABASE_USER: "root"
+      DATABASE_PASSWORD: "root"
+    ports:
+      - "9002:8080"
+    networks:
+      - dex-network
+    depends_on:
+      - dex-mysql

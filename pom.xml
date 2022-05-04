@@ -8,6 +8,7 @@
         <module>services/dex-address-service</module>
         <module>services/dex-exchange-service</module>
         <module>services/dex-auth-service</module>
+        <module>foundation/dex-service-discovery</module>
     </modules>
 
     <parent>
@@ -52,6 +53,18 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-starter-parent</artifactId>
+                <version>2021.0.1</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
         <plugins>
