@@ -7,9 +7,9 @@ import org.springframework.lang.NonNull;
 import java.util.Optional;
 
 public interface DexAddressRepository extends JpaRepository<DexAddress, Long> {
-    @Query("select d from DexAddress d where d.userId = ?1")
+    @Query("select d from DexAddress d where d.userId = :userId")
     Optional<DexAddress> findByUserId(@NonNull Long userId);
 
-    @Query("select d from DexAddress d where d.walletAddress = ?1")
+    @Query("select d from DexAddress d where d.walletAddress = :walletAdr")
     Optional<DexAddress> findByWalletAddress(@NonNull String walletAdr);
 }

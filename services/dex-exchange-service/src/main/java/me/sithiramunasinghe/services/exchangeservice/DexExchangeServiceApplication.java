@@ -5,15 +5,18 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
+import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
 
 @SpringBootApplication
+@EnableEurekaClient
 public class DexExchangeServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(DexExchangeServiceApplication.class, args);
@@ -26,11 +29,11 @@ public class DexExchangeServiceApplication {
         restTemplateBuilder.interceptors(Collections.singleton(new RestTemplateInterceptor()));
 
         RestTemplate restTemplate = restTemplateBuilder.build();
-        HttpComponentsClientHttpRequestFactory clientHttpRequestFactory = new HttpComponentsClientHttpRequestFactory();
-        clientHttpRequestFactory.setBufferRequestBody(false);
-        BufferingClientHttpRequestFactory bufferingClientHttpRequestFactory = new BufferingClientHttpRequestFactory(clientHttpRequestFactory);
-
-        restTemplate.setRequestFactory(bufferingClientHttpRequestFactory);
+//        SimpleClientHttpRequestFactory clientHttpRequestFactory = new SimpleClientHttpRequestFactory();
+//        clientHttpRequestFactory.setBufferRequestBody(false);
+//        BufferingClientHttpRequestFactory bufferingClientHttpRequestFactory = new BufferingClientHttpRequestFactory(clientHttpRequestFactory);
+//
+//        restTemplate.setRequestFactory(bufferingClientHttpRequestFactory);
 
         return restTemplate;
     }

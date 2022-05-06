@@ -1,0 +1,364 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  PrivateDnsNamespaceName:
+    Type: String
+    Default: private
+  DBInstanceClass:
+    Type: String
+    Description: The ID of the second subnet to place the RDS instance into.
+    Default: 'db.t2.micro'
+  DBName:
+    Type: String
+    Description: The name of the database that is created within the PostgreSQL instance.
+    Default: dex-service
+  DBUsername:
+    Type: String
+    Description: The master user name for the MySQL instance.
+    Default: root
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://cf-templates-1wactrrlxrwx2-ap-southeast-1.s3.ap-southeast-1.amazonaws.com/aesc-vpc.yml
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: AESC-CLUSTER
+  EurekaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: eureka-execution-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+  EurekaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: eureka-role
+      Path: /
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+  CloudwatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Join ['-', [ECSLogGroup, !Ref 'AWS::StackName']]
+      RetentionInDays: 14
+  PrivateNamespace:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties:
+      Name: !Ref PrivateDnsNamespaceName
+      Vpc: !GetAtt VPCStack.Outputs.VPC
+
+  # Eureka Configuration
+  EurekaServerDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - TTL: 60
+            Type: A
+          - TTL: 60
+            Type: SRV
+      Name: eureka-server
+      NamespaceId: !Ref PrivateNamespace
+  EurekaServerTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub eureka-server-task
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      TaskRoleArn: !Ref EurekaRole
+      ExecutionRoleArn: !Ref EurekaExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+        - EC2
+      ContainerDefinitions:
+        - Name: eureka-server
+          Image: 280868732040.dkr.ecr.ap-southeast-1.amazonaws.com/dex-discovery-service
+          PortMappings:
+            - ContainerPort: 8761
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudwatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: eureka
+  EurekaServerService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref EurekaServerTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: 1.4.0
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !GetAtt VPCStack.Outputs.PublicSubnet1
+            - !GetAtt VPCStack.Outputs.PublicSubnet2
+          SecurityGroups:
+            - !GetAtt EurekaServerSecurityGroup.GroupId
+      ServiceRegistries:
+        - RegistryArn: !GetAtt EurekaServerDiscoveryService.Arn
+          Port: 8761
+  EurekaServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: EurekaServerSecurityGroup
+      GroupDescription: Security group for Eureka server
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8761
+          ToPort: 8761
+          CidrIp: 0.0.0.0/0
+
+
+  DexExchangeDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - TTL: 60
+            Type: A
+          - TTL: 60
+            Type: SRV
+      Name: dex-exchange-service
+      NamespaceId: !Ref PrivateNamespace
+  DexExchangeTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub dex-exchange-service-task
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      TaskRoleArn: !Ref EurekaRole
+      ExecutionRoleArn: !Ref EurekaExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+        - EC2
+      ContainerDefinitions:
+        - Name: dex-exchange-service
+          Image: 280868732040.dkr.ecr.ap-southeast-1.amazonaws.com/dex-exchange-service
+          PortMappings:
+            - ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudwatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: dex-exchange-service
+          Environment:
+            - Name: EUREKA_URI
+              Value: !Sub
+                - 'http://${ServiceName}.${NamespaceName}:8761/eureka'
+                - ServiceName: !GetAtt EurekaServerDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+            - Name: EUREKA_INSTANCE_HOSTNAME
+              Value: !Sub
+                - '${ServiceName}.${NamespaceName}'
+                - ServiceName: !GetAtt DexExchangeDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+  DexExchangeService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref DexExchangeTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: 1.4.0
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !GetAtt VPCStack.Outputs.PublicSubnet1
+            - !GetAtt VPCStack.Outputs.PublicSubnet2
+          SecurityGroups:
+            - !GetAtt DexExchangeSecurityGroup.GroupId
+      ServiceRegistries:
+        - RegistryArn: !GetAtt DexExchangeDiscoveryService.Arn
+          Port: 8080
+  DexExchangeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DexExchangeSecurityGroup
+      GroupDescription: Security group for dex-exchange-service
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+
+#  EurekaClientBDiscoveryService:
+#    Type: AWS::ServiceDiscovery::Service
+#    Properties:
+#      DnsConfig:
+#        RoutingPolicy: MULTIVALUE
+#        DnsRecords:
+#          - TTL: 60
+#            Type: A
+#          - TTL: 60
+#            Type: SRV
+#      Name: eureka-client-b
+#      NamespaceId: !Ref PrivateNamespace
+#  EurekaClientBTaskDefinition:
+#    Type: AWS::ECS::TaskDefinition
+#    Properties:
+#      Family: !Sub eureka-client-b-task
+#      Cpu: 512
+#      Memory: 1024
+#      NetworkMode: awsvpc
+#      TaskRoleArn: !Ref EurekaRole
+#      ExecutionRoleArn: !Ref EurekaExecutionRole
+#      RequiresCompatibilities:
+#        - FARGATE
+#        - EC2
+#      ContainerDefinitions:
+#        - Name: eureka-client-b
+#          Image: 280868732040.dkr.ecr.ap-southeast-1.amazonaws.com/dex-exchange-service
+#          PortMappings:
+#            - ContainerPort: 8080
+#          LogConfiguration:
+#            LogDriver: awslogs
+#            Options:
+#              awslogs-group: !Ref CloudwatchLogsGroup
+#              awslogs-region: !Ref AWS::Region
+#              awslogs-stream-prefix: eureka-client-b
+#          Environment:
+#            - Name: EUREKA_URI
+#              Value: !Sub
+#                - 'http://${ServiceName}.${NamespaceName}:8761/eureka'
+#                - ServiceName: !GetAtt EurekaServerDiscoveryService.Name
+#                  NamespaceName: !Ref PrivateDnsNamespaceName
+#            - Name: EUREKA_INSTANCE_HOSTNAME
+#              Value: !Sub
+#                - '${ServiceName}.${NamespaceName}'
+#                - ServiceName: !GetAtt EurekaClientBDiscoveryService.Name
+#                  NamespaceName: !Ref PrivateDnsNamespaceName
+#  EurekaClientBService:
+#    Type: AWS::ECS::Service
+#    Properties:
+#      Cluster: !Ref ECSCluster
+#      TaskDefinition: !Ref EurekaClientBTaskDefinition
+#      DesiredCount: 1
+#      LaunchType: FARGATE
+#      PlatformVersion: 1.4.0
+#      DeploymentConfiguration:
+#        MinimumHealthyPercent: 0
+#        MaximumPercent: 100
+#      NetworkConfiguration:
+#        AwsvpcConfiguration:
+#          AssignPublicIp: ENABLED
+#          Subnets:
+#            - !GetAtt VPCStack.Outputs.PublicSubnet1
+#            - !GetAtt VPCStack.Outputs.PublicSubnet2
+#          SecurityGroups:
+#            - !GetAtt EurekaClientBSecurityGroup.GroupId
+#      ServiceRegistries:
+#        - RegistryArn: !GetAtt EurekaClientBDiscoveryService.Arn
+#          Port: 8080
+#  EurekaClientBSecurityGroup:
+#    Type: AWS::EC2::SecurityGroup
+#    Properties:
+#      GroupName: EurekaClientBSecurityGroup
+#      GroupDescription: Security group for eureka-client-b
+#      VpcId: !GetAtt VPCStack.Outputs.VPC
+#      SecurityGroupIngress:
+#        - IpProtocol: tcp
+#          FromPort: 8080
+#          ToPort: 8080
+#          CidrIp: 0.0.0.0/0
+
+
+
+  Secret:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Name: !Ref 'DBUsername'
+      GenerateSecretString:
+        # This will generate a JSON object with the keys "username" and password.
+        SecretStringTemplate: !Join ['', ['{"username": "', !Ref 'DBUsername' ,'"}']]
+        GenerateStringKey: "password"
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for the RDS instance
+      DBSubnetGroupName: DBSubnetGroup
+      SubnetIds:
+        - !GetAtt VPCStack.Outputs.PrivateSubnet1
+        - !GetAtt VPCStack.Outputs.PrivateSubnet2
+
+  MySQLInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: { Ref: 'AWS::Region' }
+      DBInstanceClass: !Ref 'DBInstanceClass'
+      DBName: !Ref 'DBName'
+      DBSubnetGroupName: !Ref 'DBSubnetGroup'
+      Engine: MYSQL
+      EngineVersion: 8.0.20
+      MasterUsername: !Ref 'DBUsername'
+      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref Secret, ':SecretString:password}}' ]]
+      PubliclyAccessible: false
+      VPCSecurityGroups:
+        - !GetAtt VPCStack.Outputs.DBSecurityGroup
+
+  SecretRDSInstanceAttachment:
+    Type: "AWS::SecretsManager::SecretTargetAttachment"
+    Properties:
+      SecretId: !Ref Secret
+      TargetId: !Ref MySQLInstance
+      TargetType: AWS::RDS::DBInstance
+
+
+Outputs:
+  EndpointAddress:
+    Description: Address of the RDS endpoint.
+    Value: !GetAtt 'MySQLInstance.Endpoint.Address'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EndpointAddress' ] ]
+  EndpointPort:
+    Description: Port of the RDS endpoint.
+    Value: !GetAtt 'MySQLInstance.Endpoint.Port'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EndpointPort' ] ]
+  DBName:
+    Description: The name of the database that is created within the MySQL instance.
+    Value: !Ref DBName
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DBName' ] ]
+  Secret:
+    Description: Reference to the secret containing the password to the database.
+    Value: !Ref 'Secret'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Secret' ] ]

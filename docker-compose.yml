@@ -15,7 +15,7 @@ services:
       - dex-network
 
   dex-discovery-service:
-    image: "dex-services/dex-discovery-service"
+    image: "dex-services-dex-discovery-service"
     build:
       context: "foundation/dex-service-discovery/."
       dockerfile: "Dockerfile"
@@ -29,7 +29,7 @@ services:
     build:
       context: "services/dex-auth-service/."
       dockerfile: "Dockerfile"
-    image: "dex-services/dex-auth-service:latest"
+    image: "dex-services-dex-auth-service:latest"
     environment:
       EUREKA_URI: "http://dex-discovery-service:8761/eureka"
       DATABASE_INSTANCE: "dex-datastore"
@@ -48,7 +48,7 @@ services:
     build:
       context: "services/dex-address-service/."
       dockerfile: "Dockerfile"
-    image: "dex-services/dex-address-service:latest"
+    image: "dex-services-dex-address-service:latest"
     environment:
       EUREKA_URI: "http://dex-discovery-service:8761/eureka"
       DATABASE_INSTANCE: "dex-datastore"
@@ -67,7 +67,7 @@ services:
     build:
       context: "services/dex-exchange-service/."
       dockerfile: "Dockerfile"
-    image: "dex-services/dex-exchange-service:latest"
+    image: "dex-services-dex-exchange-service:latest"
     environment:
       EUREKA_URI: "http://dex-discovery-service:8761/eureka"
       DATABASE_INSTANCE: "dex-datastore"
