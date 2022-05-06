@@ -1,0 +1,179 @@
+{
+	"info": {
+		"_postman_id": "9b2f175c-ae3c-41e5-8021-56ab8a10f310",
+		"name": "AESC",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "AUTH-SERVICE",
+			"item": [
+				{
+					"name": "REGISTER-USER",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"sithira\",\n    \"password\": \"123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:9000/api/v1/authentication/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9000",
+							"path": [
+								"api",
+								"v1",
+								"authentication",
+								"login"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "LOGIN-USER",
+					"request": {
+						"method": "GET",
+						"header": []
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "DEX-ADDRESS-SERVICE",
+			"item": [
+				{
+					"name": "CREATE-WALLET",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"base_currency\": \"BTC\",\n    \"user_id\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:9001/v1/api/address/create-wallet",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9001",
+							"path": [
+								"v1",
+								"api",
+								"address",
+								"create-wallet"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "STORE-FUNDS",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"wallet_id\": \"c05df8fa-74d2-47b5-be18-94e070eee5f9\",\n    \"amount\": 100\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:9001/v1/api/address/store-funds",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9001",
+							"path": [
+								"v1",
+								"api",
+								"address",
+								"store-funds"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "FIND-WALLET",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:9001/v1/api/address/fetch-wallet/e926b8d6-fb9a-4d25-9c49-5e3c80fdbe57",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9001",
+							"path": [
+								"v1",
+								"api",
+								"address",
+								"fetch-wallet",
+								"e926b8d6-fb9a-4d25-9c49-5e3c80fdbe57"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "DEX-EXCHANGE-SERVICE",
+			"item": [
+				{
+					"name": "EXCHANGE-CURRENCY",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"to_wallet_address\": \"e926b8d6-fb9a-4d25-9c49-5e3c80fdbe57\",\n    \"from_currency\": \"BTC\",\n    \"to_currency\": \"BTC\",\n    \"amount\": 10\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "http://localhost:9002/api/v1/exchange/exchange",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "9002",
+							"path": [
+								"api",
+								"v1",
+								"exchange",
+								"exchange"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
