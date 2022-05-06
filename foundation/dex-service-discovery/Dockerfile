@@ -12,4 +12,4 @@ COPY ${JAR_FILE} app.jar
 # java -jar /opt/app/app.jar
 ENTRYPOINT ["java","-jar","app.jar"]
 
-EXPOSE 8761
+#EXPOSE 8761:
