@@ -14,6 +14,18 @@ services:
     networks:
       - dex-network
 
+  dex-api-gateway:
+    image: "dex-services-dex-api-gateway"
+    build:
+      context: "foundation/dex-api-gateway/."
+      dockerfile: "Dockerfile"
+    networks:
+      - dex-network
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_URI: "http://dex-discovery-service:8761/eureka"
+
   dex-discovery-service:
     image: "dex-services-dex-discovery-service"
     build:

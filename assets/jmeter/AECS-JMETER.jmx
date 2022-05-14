@@ -33,18 +33,18 @@
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
                 <stringProp name="Argument.value">{&#xd;
-    &quot;username&quot;: &quot;sithira&quot;,&#xd;
+    &quot;username&quot;: &quot;sithira1&quot;,&#xd;
     &quot;password&quot;: &quot;123456&quot;&#xd;
 }</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">9000</stringProp>
+          <stringProp name="HTTPSampler.domain">http://206.189.153.228</stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">/api/v1/authentication/register</stringProp>
+          <stringProp name="HTTPSampler.path">/auth/api/v1/authentication/register</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -153,11 +153,11 @@
               </elementProp>
             </collectionProp>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">9000</stringProp>
+          <stringProp name="HTTPSampler.domain">206.189.153.228</stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">/api/v1/authentication/login</stringProp>
+          <stringProp name="HTTPSampler.path">/auth/api/v1/authentication/login</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -256,11 +256,11 @@
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">9001</stringProp>
+          <stringProp name="HTTPSampler.domain">206.189.153.228</stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">v1/api/address/fetch-wallet/e926b8d6-fb9a-4d25-9c49-5e3c80fdbe57</stringProp>
+          <stringProp name="HTTPSampler.path">/address/v1/api/address/fetch-wallet/43993bc8-b05e-49d9-a241-d57fb288147e</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -399,7 +399,7 @@
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
                 <stringProp name="Argument.value">{&#xd;
-    &quot;to_wallet_address&quot;: &quot;e926b8d6-fb9a-4d25-9c49-5e3c80fdbe57&quot;,&#xd;
+    &quot;to_wallet_address&quot;: &quot;43993bc8-b05e-49d9-a241-d57fb288147e&quot;,&#xd;
     &quot;from_currency&quot;: &quot;BTC&quot;,&#xd;
     &quot;to_currency&quot;: &quot;BTC&quot;,&#xd;
     &quot;amount&quot;: 10&#xd;
@@ -408,11 +408,11 @@
               </elementProp>
             </collectionProp>
           </elementProp>
-          <stringProp name="HTTPSampler.domain">localhost</stringProp>
-          <stringProp name="HTTPSampler.port">9002</stringProp>
+          <stringProp name="HTTPSampler.domain">206.189.153.228</stringProp>
+          <stringProp name="HTTPSampler.port">8080</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
           <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">api/v1/exchange/exchange</stringProp>
+          <stringProp name="HTTPSampler.path">/exchange/api/v1/exchange/exchange</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.auto_redirects">false</boolProp>

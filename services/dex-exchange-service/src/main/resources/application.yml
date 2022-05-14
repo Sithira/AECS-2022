@@ -1,18 +1,19 @@
 server:
-  port: 8080
-
+  port: 8082
+  servlet:
+    context-path: "/exchange"
 spring:
   application:
     name: dex-exchange-service
-#  datasource:
-#    url: jdbc:mysql://${DATABASE_INSTANCE:localhost}:3306/${DATABASE_NAME}?createDatabaseIfNotExist=true
-#    username: ${DATABASE_USER}
-#    password: ${DATABASE_PASSWORD}
-#  jpa:
-#    hibernate:
-#      ddl-auto: update
-#    generate-ddl: true
-#    open-in-view: false
+  datasource:
+    url: jdbc:mysql://${DATABASE_INSTANCE:localhost}:3306/${DATABASE_NAME:dex_exchange}?createDatabaseIfNotExist=true
+    username: ${DATABASE_USER:root}
+    password: ${DATABASE_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    generate-ddl: true
+    open-in-view: false
 
 
 logging:

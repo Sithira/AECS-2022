@@ -5,12 +5,12 @@ import me.sithiramunasinghe.services.exchangeservice.dto.DexWalletDetails;
 import me.sithiramunasinghe.services.exchangeservice.dto.DexWalletStoreFundsRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+//import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 @Slf4j
 @Service
-@Transactional
+//@Transactional
 public class DexExchangeServiceImpl implements DexExchangeService {
 
     private final RestTemplate restTemplate;
@@ -22,7 +22,7 @@ public class DexExchangeServiceImpl implements DexExchangeService {
 
     @Override
     public void exchange(DexExchangeRequest dexExchangeRequest) {
-        final String url = "http://dex-address-service/v1/api/address/fetch-wallet/" + dexExchangeRequest.getToWalletAddress();
+        final String url = "http://dex-address-service/address/v1/api/address/fetch-wallet/" + dexExchangeRequest.getToWalletAddress();
 
         DexWalletDetails toWalletAddress = this.restTemplate.getForObject(url, DexWalletDetails.class);
 
@@ -36,7 +36,7 @@ public class DexExchangeServiceImpl implements DexExchangeService {
 
         final Float transferValue = dexExchangeRequest.getAmount() - (dexExchangeRequest.getAmount() / 20.F);
 
-        final String storeFundsUrl = "http://dex-address-service/v1/api/address/store-funds";
+        final String storeFundsUrl = "http://dex-address-service/address/v1/api/address/store-funds";
 
         DexWalletStoreFundsRequest storeFundsRequest = new DexWalletStoreFundsRequest();
         storeFundsRequest.setAmount(transferValue);

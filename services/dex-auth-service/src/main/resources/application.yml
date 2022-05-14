@@ -1,13 +1,15 @@
 server:
-  port: 8080
+  port: 8083
+  servlet:
+    context-path: "/auth"
 
 spring:
   application:
     name: dex-auth-service
   datasource:
-    url: jdbc:mysql://${DATABASE_INSTANCE:localhost}:3306/${DATABASE_NAME}?createDatabaseIfNotExist=true
-    username: ${DATABASE_USER}
-    password: ${DATABASE_PASSWORD}
+    url: jdbc:mysql://${DATABASE_INSTANCE:localhost}:3306/${DATABASE_NAME:dex_auth}?createDatabaseIfNotExist=true
+    username: ${DATABASE_USER:root}
+    password: ${DATABASE_PASSWORD:root}
   jpa:
     hibernate:
       ddl-auto: update

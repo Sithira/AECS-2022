@@ -9,6 +9,7 @@
         <module>services/dex-exchange-service</module>
         <module>services/dex-auth-service</module>
         <module>foundation/dex-service-discovery</module>
+        <module>foundation/dex-api-gateway</module>
     </modules>
 
     <parent>

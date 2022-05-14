@@ -60,7 +60,56 @@ Resources:
       Name: !Ref PrivateDnsNamespaceName
       Vpc: !GetAtt VPCStack.Outputs.VPC
 
-  # Eureka Configuration
+
+  Secret:
+    Type: "AWS::SecretsManager::Secret"
+    Properties:
+      Name: !Ref 'DBUsername'
+      GenerateSecretString:
+        # This will generate a JSON object with the keys "username" and password.
+        SecretStringTemplate: !Join ['', ['{"username": "', !Ref 'DBUsername' ,'"}']]
+        GenerateStringKey: "password"
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for the RDS instance
+      DBSubnetGroupName: DBSubnetGroup
+      SubnetIds:
+        - !GetAtt VPCStack.Outputs.PrivateSubnet1
+        - !GetAtt VPCStack.Outputs.PrivateSubnet2
+
+  MySQLInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      AvailabilityZone:
+        Fn::Select:
+          - 0
+          - Fn::GetAZs: { Ref: 'AWS::Region' }
+      DBInstanceClass: !Ref 'DBInstanceClass'
+      DBName: !Ref 'DBName'
+      DBSubnetGroupName: !Ref 'DBSubnetGroup'
+      Engine: MYSQL
+      EngineVersion: 8.0.20
+      MasterUsername: !Ref 'DBUsername'
+      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref Secret, ':SecretString:password}}' ]]
+#      MasterUserPassword: 'Pa$$worD1.'
+      PubliclyAccessible: true
+      VPCSecurityGroups:
+        - !GetAtt VPCStack.Outputs.DBSecurityGroup
+
+  SecretRDSInstanceAttachment:
+    Type: "AWS::SecretsManager::SecretTargetAttachment"
+    Properties:
+      SecretId: !Ref Secret
+      TargetId: !Ref MySQLInstance
+      TargetType: AWS::RDS::DBInstance
+
+
+  # DISCOVERY-SERVER Configuration
   EurekaServerDiscoveryService:
     Type: AWS::ServiceDiscovery::Service
     Properties:
@@ -130,7 +179,178 @@ Resources:
           ToPort: 8761
           CidrIp: 0.0.0.0/0
 
+  # API-GATEWAY Configuration
+  DexApiGatewayDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - TTL: 60
+            Type: A
+          - TTL: 60
+            Type: SRV
+      Name: dex-api-gateway-service
+      NamespaceId: !Ref PrivateNamespace
+  DexApiGatewayTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub dex-api-gateway-service-task
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      TaskRoleArn: !Ref EurekaRole
+      ExecutionRoleArn: !Ref EurekaExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+        - EC2
+      ContainerDefinitions:
+        - Name: dex-api-gateway-service
+          Image: 280868732040.dkr.ecr.ap-southeast-1.amazonaws.com/dex-api-gateway
+          PortMappings:
+            - ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudwatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: dex-api-gateway-service
+          Environment:
+            - Name: EUREKA_URI
+              Value: !Sub
+                - 'http://${ServiceName}.${NamespaceName}:8761/eureka'
+                - ServiceName: !GetAtt EurekaServerDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+            - Name: EUREKA_INSTANCE_HOSTNAME
+              Value: !Sub
+                - '${ServiceName}.${NamespaceName}'
+                - ServiceName: !GetAtt DexApiGatewayDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+  DexApiGatewayService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref DexApiGatewayTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: 1.4.0
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !GetAtt VPCStack.Outputs.PublicSubnet1
+            - !GetAtt VPCStack.Outputs.PublicSubnet2
+          SecurityGroups:
+            - !GetAtt DexApiGatewaySecurityGroup.GroupId
+      ServiceRegistries:
+        - RegistryArn: !GetAtt DexApiGatewayDiscoveryService.Arn
+          Port: 8080
+  DexApiGatewaySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DexApiGatewaySecurityGroup
+      GroupDescription: Security group for dex-api-gateway
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
 
+  # DEX-ADDRESS-SERVICE CONFIGURATION
+  DexAddressDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - TTL: 60
+            Type: A
+          - TTL: 60
+            Type: SRV
+      Name: dex-address-service
+      NamespaceId: !Ref PrivateNamespace
+  DexAddressTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub dex-address-service-task
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      TaskRoleArn: !Ref EurekaRole
+      ExecutionRoleArn: !Ref EurekaExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+        - EC2
+      ContainerDefinitions:
+        - Name: dex-address-service
+          Image: 280868732040.dkr.ecr.ap-southeast-1.amazonaws.com/dex-address-service
+          PortMappings:
+            - ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudwatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: dex-address-service
+          Environment:
+            - Name: DATABASE_INSTANCE
+              Value: !GetAtt 'MySQLInstance.Endpoint.Address'
+            - Name: DATABASE_PASSWORD
+              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref Secret, ':SecretString:password}}' ]]
+#              Value: 'Pa$$worD1.'
+            - Name: DATABASE_USER
+              Value: root
+            - Name: DATABASE_NAME
+              Value: "dex_addresses"
+            - Name: EUREKA_URI
+              Value: !Sub
+                - 'http://${ServiceName}.${NamespaceName}:8761/eureka'
+                - ServiceName: !GetAtt EurekaServerDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+            - Name: EUREKA_INSTANCE_HOSTNAME
+              Value: !Sub
+                - '${ServiceName}.${NamespaceName}'
+                - ServiceName: !GetAtt DexAddressDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+  DexAddressService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref DexAddressTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: 1.4.0
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !GetAtt VPCStack.Outputs.PublicSubnet1
+            - !GetAtt VPCStack.Outputs.PublicSubnet2
+          SecurityGroups:
+            - !GetAtt DexAddressSecurityGroup.GroupId
+      ServiceRegistries:
+        - RegistryArn: !GetAtt DexAddressDiscoveryService.Arn
+          Port: 8080
+  DexAddressSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DexAddressSecurityGroup
+      GroupDescription: Security group for dex-address-service
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  # DEX-EXCHANGE-SERVICE CONFIGURATION
   DexExchangeDiscoveryService:
     Type: AWS::ServiceDiscovery::Service
     Properties:
@@ -167,6 +387,15 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: dex-exchange-service
           Environment:
+            - Name: DATABASE_INSTANCE
+              Value: !GetAtt 'MySQLInstance.Endpoint.Address'
+            - Name: DATABASE_PASSWORD
+              #              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref Secret, ':SecretString:password}}' ]]
+              Value: 'Pa$$worD1.'
+            - Name: DATABASE_USER
+              Value: root
+            - Name: DATABASE_NAME
+              Value: "dex_exchanges"
             - Name: EUREKA_URI
               Value: !Sub
                 - 'http://${ServiceName}.${NamespaceName}:8761/eureka'
@@ -204,6 +433,96 @@ Resources:
     Properties:
       GroupName: DexExchangeSecurityGroup
       GroupDescription: Security group for dex-exchange-service
+      VpcId: !GetAtt VPCStack.Outputs.VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  # DEX-AUTH-SERVICE CONFIGURATION
+  DexAuthDiscoveryService:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      DnsConfig:
+        RoutingPolicy: MULTIVALUE
+        DnsRecords:
+          - TTL: 60
+            Type: A
+          - TTL: 60
+            Type: SRV
+      Name: dex-auth-service
+      NamespaceId: !Ref PrivateNamespace
+  DexAuthTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub dex-auth-service-task
+      Cpu: 256
+      Memory: 512
+      NetworkMode: awsvpc
+      TaskRoleArn: !Ref EurekaRole
+      ExecutionRoleArn: !Ref EurekaExecutionRole
+      RequiresCompatibilities:
+        - FARGATE
+        - EC2
+      ContainerDefinitions:
+        - Name: dex-auth-service
+          Image: 280868732040.dkr.ecr.ap-southeast-1.amazonaws.com/dex-auth-service
+          PortMappings:
+            - ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref CloudwatchLogsGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: dex-auth-service
+          Environment:
+            - Name: DATABASE_INSTANCE
+              Value: !GetAtt 'MySQLInstance.Endpoint.Address'
+            - Name: DATABASE_PASSWORD
+              #              Value: !Join ['', ['{{resolve:secretsmanager:', !Ref Secret, ':SecretString:password}}' ]]
+              Value: 'Pa$$worD1.'
+            - Name: DATABASE_USER
+              Value: root
+            - Name: DATABASE_NAME
+              Value: "dex_auth"
+            - Name: EUREKA_URI
+              Value: !Sub
+                - 'http://${ServiceName}.${NamespaceName}:8761/eureka'
+                - ServiceName: !GetAtt EurekaServerDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+            - Name: EUREKA_INSTANCE_HOSTNAME
+              Value: !Sub
+                - '${ServiceName}.${NamespaceName}'
+                - ServiceName: !GetAtt DexAuthDiscoveryService.Name
+                  NamespaceName: !Ref PrivateDnsNamespaceName
+  DexAuthService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref DexAuthTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: 1.4.0
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 100
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !GetAtt VPCStack.Outputs.PublicSubnet1
+            - !GetAtt VPCStack.Outputs.PublicSubnet2
+          SecurityGroups:
+            - !GetAtt DexAuthSecurityGroup.GroupId
+      ServiceRegistries:
+        - RegistryArn: !GetAtt DexAuthDiscoveryService.Arn
+          Port: 8080
+  DexAuthSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: DexAuthSecurityGroup
+      GroupDescription: Security group for dex-auth-service
       VpcId: !GetAtt VPCStack.Outputs.VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -291,55 +610,6 @@ Resources:
 #          FromPort: 8080
 #          ToPort: 8080
 #          CidrIp: 0.0.0.0/0
-
-
-
-  Secret:
-    Type: "AWS::SecretsManager::Secret"
-    Properties:
-      Name: !Ref 'DBUsername'
-      GenerateSecretString:
-        # This will generate a JSON object with the keys "username" and password.
-        SecretStringTemplate: !Join ['', ['{"username": "', !Ref 'DBUsername' ,'"}']]
-        GenerateStringKey: "password"
-        PasswordLength: 32
-        ExcludeCharacters: '"@/\'
-
-  DBSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Properties:
-      DBSubnetGroupDescription: Subnet group for the RDS instance
-      DBSubnetGroupName: DBSubnetGroup
-      SubnetIds:
-        - !GetAtt VPCStack.Outputs.PrivateSubnet1
-        - !GetAtt VPCStack.Outputs.PrivateSubnet2
-
-  MySQLInstance:
-    Type: AWS::RDS::DBInstance
-    Properties:
-      AllocatedStorage: 20
-      AvailabilityZone:
-        Fn::Select:
-          - 0
-          - Fn::GetAZs: { Ref: 'AWS::Region' }
-      DBInstanceClass: !Ref 'DBInstanceClass'
-      DBName: !Ref 'DBName'
-      DBSubnetGroupName: !Ref 'DBSubnetGroup'
-      Engine: MYSQL
-      EngineVersion: 8.0.20
-      MasterUsername: !Ref 'DBUsername'
-      MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref Secret, ':SecretString:password}}' ]]
-      PubliclyAccessible: false
-      VPCSecurityGroups:
-        - !GetAtt VPCStack.Outputs.DBSecurityGroup
-
-  SecretRDSInstanceAttachment:
-    Type: "AWS::SecretsManager::SecretTargetAttachment"
-    Properties:
-      SecretId: !Ref Secret
-      TargetId: !Ref MySQLInstance
-      TargetType: AWS::RDS::DBInstance
-
 
 Outputs:
   EndpointAddress:
